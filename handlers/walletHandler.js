@@ -54,30 +54,24 @@ async function handleWalletCallbacks(ctx, callbackData) {
   try {
     switch (callbackData) {
       case 'wallet_topup':
-        ctx.scene.enter('deposit');
-        break;
+        return ctx.scene.enter('deposit');
         
       case 'wallet_history':
-        await showTransactionHistory(ctx);
-        break;
+        return await showTransactionHistory(ctx);
         
       case 'wallet_network_trc20':
         ctx.session.selectedNetwork = 'TRC20';
-        await showDepositInstructions(ctx, ctx.session.depositAmount, 'TRC20');
-        break;
+        return await showDepositInstructions(ctx, ctx.session.depositAmount, 'TRC20');
         
       case 'wallet_network_bep20':
         ctx.session.selectedNetwork = 'BEP20';
-        await showDepositInstructions(ctx, ctx.session.depositAmount, 'BEP20');
-        break;
+        return await showDepositInstructions(ctx, ctx.session.depositAmount, 'BEP20');
         
       case 'copy_trc20':
-        await ctx.answerCbQuery(ctx.i18n.t('address_copied'));
-        break;
+        return await ctx.answerCbQuery(ctx.i18n.t('address_copied'));
         
       case 'copy_bep20':
-        await ctx.answerCbQuery(ctx.i18n.t('address_copied'));
-        break;
+        return await ctx.answerCbQuery(ctx.i18n.t('address_copied'));
         
       default:
         if (callbackData.startsWith('wallet_amount_')) {
@@ -88,15 +82,16 @@ async function handleWalletCallbacks(ctx, callbackData) {
           await ctx.answerCbQuery();
           await ctx.reply(ctx.i18n.t('enter_custom_amount'));
           ctx.scene.state.awaitingCustomAmount = true;
+          return;
         } else if (callbackData === 'wallet_confirm_deposit') {
-          ctx.scene.enter('confirm_deposit');
+          return ctx.scene.enter('confirm_deposit');
         } else if (callbackData === 'wallet_cancel_deposit') {
           await ctx.answerCbQuery();
           await ctx.deleteMessage();
           await ctx.reply(ctx.i18n.t('deposit_cancelled'));
-          ctx.scene.leave();
+          return ctx.scene.leave();
         } else if (callbackData === 'wallet_back') {
-          await handleWallet(ctx);
+          return await handleWallet(ctx);
         }
     }
     
@@ -111,8 +106,13 @@ async function handleWalletCallbacks(ctx, callbackData) {
  * Count user's orders
  */
 async function countUserOrders(userId) {
-  const Order = require('../database/models/order');
-  return await Order.countDocuments({ userId });
+  try {
+    const Order = require('../database/models/order');
+    return await Order.countDocuments({ userId });
+  } catch (error) {
+    console.error('Error counting user orders:', error);
+    return 0;
+  }
 }
 
 /**
@@ -126,6 +126,7 @@ async function showTransactionHistory(ctx) {
       return ctx.reply(ctx.i18n.t('user_not_found'));
     }
     
+    // Fixed the method name - removed the space
     const transactions = await Transaction.getUserTransactions(user._id).limit(10);
     
     if (transactions.length === 0) {
@@ -143,6 +144,7 @@ async function showTransactionHistory(ctx) {
           case 'purchase': typeText = ctx.i18n.t('transaction_purchase'); break;
           case 'refund': typeText = ctx.i18n.t('transaction_refund'); break;
           case 'admin_adjustment': typeText = ctx.i18n.t('transaction_adjustment'); break;
+          default: typeText = tx.type;
         }
         
         let statusText;
@@ -151,6 +153,7 @@ async function showTransactionHistory(ctx) {
           case 'completed': statusText = ctx.i18n.t('transaction_completed'); break;
           case 'cancelled': statusText = ctx.i18n.t('transaction_cancelled'); break;
           case 'rejected': statusText = ctx.i18n.t('transaction_rejected'); break;
+          default: statusText = tx.status;
         }
         
         const amountText = tx.amount > 0 ? `+${tx.amount}` : tx.amount;
@@ -330,7 +333,7 @@ async function notifyAdminAboutDeposit(ctx, user, amount, photoFileId, transacti
     const adminMsg = `
 💰 *New Deposit Request*
 
-:User  ${user.firstName} ${user.lastName ? user.lastName : ''} 
+User: ${user.firstName} ${user.lastName ? user.lastName : ''} 
 Username: ${user.username ? '@' + user.username : 'None'}
 Telegram ID: \`${user.telegramId}\`
 Amount: *${amount} USDT*
