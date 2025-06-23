@@ -1,3 +1,4 @@
+//
 const { Telegraf, session, Scenes } = require('telegraf');
 const { message } = require('telegraf/filters');
 const fs = require('fs');
@@ -61,12 +62,30 @@ bot.command('help', async (ctx) => {
 });
 
 // Set up scene handling for complex workflows
-const stage = new Scenes.Stage([
-  ...walletHandler.scenes,
-  ...shopHandler.scenes,
-  ...supportHandler.scenes,
-  ...adminHandler.scenes
-]);
+// Safely collect scenes from handlers
+const allScenes = [];
+
+// Add scenes from walletHandler
+if (walletHandler.scenes && Array.isArray(walletHandler.scenes)) {
+  allScenes.push(...walletHandler.scenes);
+}
+
+// Add scenes from shopHandler
+if (shopHandler.scenes && Array.isArray(shopHandler.scenes)) {
+  allScenes.push(...shopHandler.scenes);
+}
+
+// Add scenes from supportHandler
+if (supportHandler.scenes && Array.isArray(supportHandler.scenes)) {
+  allScenes.push(...supportHandler.scenes);
+}
+
+// Add scenes from adminHandler
+if (adminHandler.scenes && Array.isArray(adminHandler.scenes)) {
+  allScenes.push(...adminHandler.scenes);
+}
+
+const stage = new Scenes.Stage(allScenes);
 bot.use(stage.middleware());
 
 // Handle text messages
@@ -99,13 +118,13 @@ bot.on(message('text'), async (ctx) => {
       return walletHandler.handleWallet(ctx);
     
     case ctx.i18n.t('shop_button'):
-      return shopHandler.handleShop(ctx);
+      return shopHandler.handleShop ? shopHandler.handleShop(ctx) : ctx.reply(ctx.i18n.t('feature_not_available'));
     
     case ctx.i18n.t('orders_button'):
-      return ordersHandler.handleOrders(ctx);
+      return ordersHandler.handleOrders ? ordersHandler.handleOrders(ctx) : ctx.reply(ctx.i18n.t('feature_not_available'));
     
     case ctx.i18n.t('statistics_button'):
-      return statisticsHandler.handleStatistics(ctx);
+      return statisticsHandler.handleStatistics ? statisticsHandler.handleStatistics(ctx) : ctx.reply(ctx.i18n.t('feature_not_available'));
     
     case ctx.i18n.t('ready_accounts_button'):
       return ctx.reply(ctx.i18n.t('contact_admin_message'), {
@@ -117,10 +136,10 @@ bot.on(message('text'), async (ctx) => {
       });
     
     case ctx.i18n.t('support_button'):
-      return supportHandler.startSupportSession(ctx);
+      return supportHandler.startSupportSession ? supportHandler.startSupportSession(ctx) : ctx.reply(ctx.i18n.t('feature_not_available'));
     
     case ctx.i18n.t('settings_button'):
-      return settingsHandler.handleSettings(ctx);
+      return settingsHandler.handleSettings ? settingsHandler.handleSettings(ctx) : ctx.reply(ctx.i18n.t('feature_not_available'));
     
     case ctx.i18n.t('cancel_button'):
       // Cancel current operation and return to main menu
@@ -137,12 +156,12 @@ bot.on(message('text'), async (ctx) => {
     // Admin commands are prefixed with "admin_"
     default:
       if (text.startsWith('admin_') && ctx.session.isAdmin) {
-        return adminHandler.handleAdminCommands(ctx, text);
+        return adminHandler.handleAdminCommands ? adminHandler.handleAdminCommands(ctx, text) : ctx.reply(ctx.i18n.t('feature_not_available'));
       }
       
       // Handle support chat if active
       if (ctx.session.supportChatActive) {
-        return supportHandler.handleSupportMessage(ctx);
+        return supportHandler.handleSupportMessage ? supportHandler.handleSupportMessage(ctx) : ctx.reply(ctx.i18n.t('feature_not_available'));
       }
       
       // Default response for unknown commands
@@ -158,7 +177,7 @@ bot.on('callback_query', async (ctx) => {
   
   // Handle language selection
   if (['en', 'id', 'zh', 'uz', 'ru'].includes(callbackData)) {
-    return settingsHandler.handleLanguageChange(ctx, callbackData);
+    return settingsHandler.handleLanguageChange ? settingsHandler.handleLanguageChange(ctx, callbackData) : ctx.answerCbQuery('Feature not available');
   }
   
   // Handle start callback
@@ -168,17 +187,17 @@ bot.on('callback_query', async (ctx) => {
   
   // Handle wallet callbacks
   if (callbackData.startsWith('wallet_')) {
-    return walletHandler.handleWalletCallbacks(ctx, callbackData);
+    return walletHandler.handleWalletCallbacks ? walletHandler.handleWalletCallbacks(ctx, callbackData) : ctx.answerCbQuery('Feature not available');
   }
   
   // Handle shop callbacks
   if (callbackData.startsWith('shop_')) {
-    return shopHandler.handleShopCallbacks(ctx, callbackData);
+    return shopHandler.handleShopCallbacks ? shopHandler.handleShopCallbacks(ctx, callbackData) : ctx.answerCbQuery('Feature not available');
   }
   
   // Handle admin callbacks
   if (callbackData.startsWith('admin_')) {
-    return adminHandler.handleAdminCallbacks(ctx, callbackData);
+    return adminHandler.handleAdminCallbacks ? adminHandler.handleAdminCallbacks(ctx, callbackData) : ctx.answerCbQuery('Feature not available');
   }
   
   // Handle other callbacks
@@ -197,46 +216,50 @@ bot.on('callback_query', async (ctx) => {
 // Handle photo messages (for deposit confirmations)
 bot.on(message('photo'), async (ctx) => {
   if (ctx.session.awaitingDepositConfirmation) {
-    return walletHandler.handleDepositProof(ctx);
+    return walletHandler.handleDepositProof ? walletHandler.handleDepositProof(ctx) : ctx.reply(ctx.i18n.t('feature_not_available'));
   }
   
   // Handle support chat photos
   if (ctx.session.supportChatActive) {
-    return supportHandler.handleSupportPhoto(ctx);
+    return supportHandler.handleSupportPhoto ? supportHandler.handleSupportPhoto(ctx) : ctx.reply(ctx.i18n.t('feature_not_available'));
   }
 });
 
 // Set bot commands for all languages
 const setCommands = async () => {
-  // English commands
-  await bot.telegram.setMyCommands([
-    { command: 'start', description: 'Start the bot' },
-    { command: 'help', description: 'Get help on how to use the bot' }
-  ], { language_code: 'en' });
-  
-  // Indonesian commands
-  await bot.telegram.setMyCommands([
-    { command: 'start', description: 'Mulai bot' },
-    { command: 'help', description: 'Dapatkan bantuan cara menggunakan bot' }
-  ], { language_code: 'id' });
-  
-  // Chinese commands
-  await bot.telegram.setMyCommands([
-    { command: 'start', description: '启动机器人' },
-    { command: 'help', description: '获取如何使用机器人的帮助' }
-  ], { language_code: 'zh' });
-  
-  // Uzbek commands
-  await bot.telegram.setMyCommands([
-    { command: 'start', description: 'Botni ishga tushirish' },
-    { command: 'help', description: 'Botdan foydalanish bo\'yicha yordam olish' }
-  ], { language_code: 'uz' });
-  
-  // Russian commands
-  await bot.telegram.setMyCommands([
-    { command: 'start', description: 'Запустить бота' },
-    { command: 'help', description: 'Получить помощь по использованию бота' }
-  ], { language_code: 'ru' });
+  try {
+    // English commands
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: 'Start the bot' },
+      { command: 'help', description: 'Get help on how to use the bot' }
+    ], { language_code: 'en' });
+    
+    // Indonesian commands
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: 'Mulai bot' },
+      { command: 'help', description: 'Dapatkan bantuan cara menggunakan bot' }
+    ], { language_code: 'id' });
+    
+    // Chinese commands
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: '启动机器人' },
+      { command: 'help', description: '获取如何使用机器人的帮助' }
+    ], { language_code: 'zh' });
+    
+    // Uzbek commands
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: 'Botni ishga tushirish' },
+      { command: 'help', description: 'Botdan foydalanish bo\'yicha yordam olish' }
+    ], { language_code: 'uz' });
+    
+    // Russian commands
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: 'Запустить бота' },
+      { command: 'help', description: 'Получить помощь по использованию бота' }
+    ], { language_code: 'ru' });
+  } catch (error) {
+    console.error('Error setting bot commands:', error);
+  }
 };
 
 // Error handling
@@ -244,8 +267,12 @@ bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}:`, err);
   
   // Log the error to a file
-  const errorLog = `${new Date().toISOString()} - Error in ${ctx.updateType}: ${err.message}\n${err.stack}\n\n`;
-  fs.appendFileSync(path.join(__dirname, 'error.log'), errorLog);
+  try {
+    const errorLog = `${new Date().toISOString()} - Error in ${ctx.updateType}: ${err.message}\n${err.stack}\n\n`;
+    fs.appendFileSync(path.join(__dirname, 'error.log'), errorLog);
+  } catch (logError) {
+    console.error('Error writing to log file:', logError);
+  }
   
   // Notify admin about the error
   if (config.ADMIN_ID) {
@@ -274,12 +301,20 @@ bot.catch((err, ctx) => {
     
     // Launch the bot
     await bot.launch();
-    console.log('Bot started');
+    console.log('Bot started successfully');
+    console.log(`Loaded ${allScenes.length} scenes from handlers`);
   } catch (error) {
     console.error('Failed to start the bot:', error);
+    process.exit(1);
   }
 })();
 
 // Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGINT', () => {
+  console.log('Received SIGINT, stopping bot...');
+  bot.stop('SIGINT');
+});
+process.once('SIGTERM', () => {
+  console.log('Received SIGTERM, stopping bot...');
+  bot.stop('SIGTERM');
+});
