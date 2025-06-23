@@ -69,7 +69,7 @@ transactionSchema.statics.createTransaction = async function(userId, telegramId,
 };
 
 // Get user's transactions
-transactionSchema.statics.getUser Transactions = function(userId) {
+transactionSchema.statics.getUserTransactions = function(userId) {
   return this.find({ userId }).sort({ createdAt: -1 });
 };
 
