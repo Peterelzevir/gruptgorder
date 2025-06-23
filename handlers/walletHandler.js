@@ -126,7 +126,7 @@ async function showTransactionHistory(ctx) {
       return ctx.reply(ctx.i18n.t('user_not_found'));
     }
     
-    const transactions = await Transaction.getUser Transactions(user._id).limit(10);
+    const transactions = await Transaction.getUserTransactions(user._id).limit(10);
     
     if (transactions.length === 0) {
       return ctx.reply(ctx.i18n.t('no_transactions'));
