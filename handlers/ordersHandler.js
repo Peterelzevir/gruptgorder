@@ -14,7 +14,7 @@ async function handleOrders(ctx) {
       return ctx.reply(ctx.i18n.t('user_not_found'));
     }
     
-    const orders = await Order.getUser Orders(user._id);
+    const orders = await Order.getUserOrders(user._id);
     
     if (orders.length === 0) {
       return ctx.reply(ctx.i18n.t('no_orders_found'));
