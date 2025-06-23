@@ -29,7 +29,7 @@ async function handleWallet(ctx) {
       balance,
       totalDeposited,
       totalSpent,
-      orders: await countUser Orders(user._id)
+      orders: await countUserOrders(user._id)
     });
     
     const keyboard = Markup.inlineKeyboard([
