@@ -110,7 +110,7 @@ async function handleWalletCallbacks(ctx, callbackData) {
 /**
  * Count user's orders
  */
-async function countUser Orders(userId) {
+async function countUserOrders(userId) {
   const Order = require('../database/models/order');
   return await Order.countDocuments({ userId });
 }
